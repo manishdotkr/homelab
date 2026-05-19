@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dumbkan
+  namespace: argocd-ns
+spec:
+  description: dumbkan homelab project
+  sourceRepos:
+    - https://github.com/manishdotkr/homelab.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: dumbkan-ns
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dumbkan
+  namespace: argocd-ns
+spec:
+  project: dumbkan
+  source:
+    repoURL: https://github.com/manishdotkr/homelab.git
+    targetRevision: main
+    path: helm/dumbkan
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dumbkan-ns
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - Validate=true
+      - CreateNamespace=true

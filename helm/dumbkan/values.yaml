@@ -1,15 +1,15 @@
 replicaCount: 1
 
 image:
-  repository: dumbwareio/dumbpad
+  repository: dumbwareio/dumbkan
   tag: 1.0.5
   pullPolicy: IfNotPresent
 
 appName: dumbkan
 
 env:
-  siteTitle: "DumbPad"
-  baseUrl: "http://dumbpad.devopsindia.dev"
+  siteTitle: "dumbkan"
+  baseUrl: "http://board.devopsindia.dev"
 
 resources:
   requests:
@@ -20,7 +20,7 @@ resources:
     memory: 100Mi
 
 persistence:
-  hostPath: /mnt/ssd/kubernetes/dumbpad
+  hostPath: /mnt/ssd/kubernetes/dumbkan
   mountPath: /app/data
 
 service:
@@ -31,7 +31,7 @@ service:
 ingress:
   enabled: true
   className: nginx
-  host: dumbpad.devopsindia.dev
+  host: board.devopsindia.dev
   path: /
   pathType: Prefix
   annotations:

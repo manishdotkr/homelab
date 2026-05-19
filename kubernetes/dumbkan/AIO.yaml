@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dumbkan-dep
+  namespace: dumbkan-ns
+  labels:
+    app: dumbkan
+spec:
+  selector:
+    matchLabels:
+      app: dumbkan
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: dumbkan
+    spec:
+      containers:
+        - name: dumbkan
+          image: dumbwareio/dumbkan:latest
+          env:
+            - name: SITE_TITLE
+              value: "dumbkan"
+            - name: BASE_URL
+              value: "http://board.devopsindia.dev"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 3000
+              name: dumbkan
+          volumeMounts:
+            - name: dumbkan-data
+              mountPath: /app/data
+      volumes:
+        - name: dumbkan-data
+          hostPath:
+            path: /mnt/ssd/kubernetes/dumbkan
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dumbkan-svc
+  namespace: dumbkan-ns
+spec:
+  selector:
+    app: dumbkan
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+  - name: dumbkan
+    protocol: TCP
+    port: 3000
+    targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dumbkan-ingress
+  namespace: dumbkan-ns
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: dumbkan.devopsindia.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dumbkan-svc
+                port:
+                  number: 3000
