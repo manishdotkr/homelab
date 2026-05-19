@@ -1,0 +1,40 @@
+replicaCount: 1
+
+image:
+  repository: dumbwareio/dumbpad
+  tag: 1.0.5
+  pullPolicy: IfNotPresent
+
+namespace: dumbpad-ns
+
+env:
+  siteTitle: "DumbPad"
+  baseUrl: "http://dumbpad.devopsindia.dev"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 100Mi
+  limits:
+    cpu: 100m
+    memory: 100Mi
+
+persistence:
+  hostPath: /mnt/ssd/kubernetes/dumbpad
+  mountPath: /app/data
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: nginx
+  host: dumbpad.devopsindia.dev
+  path: /
+  pathType: Prefix
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
