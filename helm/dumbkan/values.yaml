@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: dumbwareio/dumbkan
-  tag: 1.0.5
+  tag: latest
   pullPolicy: IfNotPresent
 
 appName: dumbkan
