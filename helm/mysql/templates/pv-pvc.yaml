@@ -1,0 +1,54 @@
+{{- if .Values.persistence.enabled }}
+{{/*
+PersistentVolume — cluster-scoped, backed by a hostPath on the node.
+The claimRef pre-binds this PV exclusively to our PVC so no other
+claim can steal it.
+*/}}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "mysql.pvName" . }}
+  labels:
+    {{- include "mysql.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  capacity:
+    storage: {{ .Values.persistence.size | quote }}
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: {{ .Values.persistence.reclaimPolicy | default "Retain" }}
+  ## storageClassName: "" disables dynamic provisioning — this is a static PV.
+  storageClassName: ""
+  hostPath:
+    path: {{ .Values.persistence.hostPath | quote }}
+    type: {{ .Values.persistence.hostPathType | default "DirectoryOrCreate" }}
+  ## Pre-bind exclusively to our PVC
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: {{ include "mysql.pvcName" . }}
+    namespace: {{ .Release.Namespace | quote }}
+---
+{{/*
+PersistentVolumeClaim — namespaced, binds directly to the PV above
+via volumeName so no other PV can match.
+*/}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "mysql.pvcName" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "mysql.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | quote }}
+  ## storageClassName: "" must match the PV above (static binding)
+  storageClassName: ""
+  ## Explicit bind — skip the scheduler's PV selection entirely
+  volumeName: {{ include "mysql.pvName" . }}
+{{- end }}

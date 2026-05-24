@@ -1,0 +1,63 @@
+{{/*
+ConfigMap — custom MySQL configuration (my.cnf).
+Mounted at /etc/mysql/conf.d/custom.cnf inside the container.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mysql.configMapName" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "mysql.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  custom.cnf: |
+    [mysqld]
+    # Connection
+    max_connections          = {{ .Values.mysqlConfig.max_connections }}
+    max_allowed_packet       = {{ .Values.mysqlConfig.max_allowed_packet }}
+
+    # Character set
+    character_set_server     = {{ .Values.mysqlConfig.character_set_server }}
+    collation_server         = {{ .Values.mysqlConfig.collation_server }}
+
+    # Authentication
+    default_authentication_plugin = {{ .Values.mysqlConfig.default_authentication_plugin }}
+
+    # Slow query log
+    slow_query_log           = {{ .Values.mysqlConfig.slow_query_log }}
+    long_query_time          = {{ .Values.mysqlConfig.long_query_time }}
+
+    # InnoDB
+    innodb_buffer_pool_size  = {{ .Values.mysqlConfig.innodb_buffer_pool_size }}
+
+    # Paths
+    datadir                  = /var/lib/mysql
+    socket                   = /var/run/mysqld/mysqld.sock
+    pid-file                 = /var/run/mysqld/mysqld.pid
+
+    [client]
+    default-character-set    = {{ .Values.mysqlConfig.character_set_server }}
+    socket                   = /var/run/mysqld/mysqld.sock
+
+{{- if .Values.initScripts }}
+---
+{{/*
+ConfigMap — init scripts.
+All files are mounted into /docker-entrypoint-initdb.d/ and the
+official MySQL image runs them once on first boot (sorted by name).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mysql.initScriptsConfigMapName" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "mysql.labels" . | nindent 4 }}
+    app.kubernetes.io/component: initscripts
+data:
+  {{- range $filename, $content := .Values.initScripts }}
+  {{ $filename }}: |
+    {{- $content | nindent 4 }}
+  {{- end }}
+{{- end }}

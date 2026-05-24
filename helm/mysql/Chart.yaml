@@ -1,0 +1,11 @@
+apiVersion: v2
+name: mysql
+description: A custom Helm chart to deploy MySQL 9.3 (latest stable) on Kubernetes with hostPath persistence
+type: application
+version: 1.0.0
+appVersion: "9.3"
+keywords:
+  - mysql
+  - database
+maintainers:
+  - name: manishdotkr

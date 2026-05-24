@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: mysql-ns
+  labels:
+    app.kubernetes.io/name: mysql
+    app.kubernetes.io/managed-by: manual
+type: Opaque
+stringData:
+  mysql-root-password: <mysql-root-password>
+  mysql-password: <mysql-password>

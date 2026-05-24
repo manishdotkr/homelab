@@ -1,0 +1,139 @@
+# ============================================================
+# values.yaml — MySQL custom Helm chart
+# Override any value with --set or a custom values file.
+# Sensitive values (passwords) live in secrets.yaml — NOT here.
+# ============================================================
+
+## ── Image ────────────────────────────────────────────────────
+image:
+  repository: mysql
+  tag: "9.3"
+  pullPolicy: IfNotPresent
+
+## ── Replica ──────────────────────────────────────────────────
+replicaCount: 1
+
+## ── Name overrides ───────────────────────────────────────────
+nameOverride: ""
+fullnameOverride: ""
+
+## ── MySQL configuration ──────────────────────────────────────
+mysql:
+  ## Name of the default database created on first boot
+  database: mydb
+  ## Non-root user created on first boot (leave empty to skip)
+  user: myuser
+  ## Name of the Kubernetes Secret that holds all passwords.
+  ## Must be created BEFORE helm install (apply secrets.yaml first).
+  ## The secret must contain these keys:
+  ##   MYSQL_ROOT_PASSWORD
+  ##   MYSQL_PASSWORD        (only needed if mysql.user is set)
+  existingSecret: mysql-secret
+
+## ── Persistence (hostPath) ───────────────────────────────────
+persistence:
+  enabled: true
+  ## Absolute path on the Kubernetes node
+  hostPath: /mnt/ssd/kubernetes/mysql
+  ## DirectoryOrCreate → creates the path if it does not exist
+  ## Directory         → path must already exist on the node
+  hostPathType: DirectoryOrCreate
+  ## Size is used for the PVC request (must match or be ≤ PV capacity)
+  size: 10Gi
+  ## Keep data when the PVC is deleted
+  reclaimPolicy: Retain
+
+## ── Service ──────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 3306
+  ## Set to a fixed value if you need a stable cluster IP
+  clusterIP: ""
+  ## Uncomment for NodePort access
+  # type: NodePort
+  # nodePort: 30306
+
+## ── Resource limits ──────────────────────────────────────────
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+## ── Probes ───────────────────────────────────────────────────
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  ## Allow up to 5 min for first-boot initialisation (30 × 10s)
+  failureThreshold: 30
+
+## ── Security context ─────────────────────────────────────────
+podSecurityContext:
+  fsGroup: 999        # mysql group inside the official image
+
+containerSecurityContext:
+  runAsUser: 999      # mysql user inside the official image
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+
+## ── MySQL server configuration (my.cnf) ──────────────────────
+## These are injected via a ConfigMap mounted at /etc/mysql/conf.d/
+mysqlConfig:
+  max_connections: 151
+  max_allowed_packet: 16M
+  character_set_server: utf8mb4
+  collation_server: utf8mb4_unicode_ci
+  default_authentication_plugin: mysql_native_password
+  slow_query_log: 0
+  long_query_time: 10
+  ## InnoDB buffer pool — recommended: 50-70 % of available memory
+  innodb_buffer_pool_size: 256M
+
+## ── Extra environment variables ──────────────────────────────
+## Useful for MYSQL_* variables not covered above.
+## Example:
+##   - name: MYSQL_INITDB_SKIP_TZINFO
+##     value: "1"
+extraEnvVars: []
+
+## ── Init scripts ─────────────────────────────────────────────
+## SQL or shell scripts to run once on first boot.
+## Key = filename, value = script content.
+## Example:
+##   initScripts:
+##     01-grants.sql: |
+##       GRANT ALL ON mydb.* TO 'myuser'@'%';
+initScripts: {}
+
+## ── Pod annotations / labels ─────────────────────────────────
+podAnnotations: {}
+podLabels: {}
+
+## ── Node scheduling ──────────────────────────────────────────
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+## ── Service account ──────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

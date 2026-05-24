@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: mysql
+  namespace: argocd-ns
+spec:
+  description: MySQL homelab project — custom chart
+  sourceRepos:
+    - https://github.com/manishdotkr/homelab.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: mysql-ns
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mysql
+  namespace: argocd-ns
+spec:
+  project: mysql
+  source:
+    repoURL: https://github.com/manishdotkr/homelab.git
+    targetRevision: main
+    path: helm/mysql
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mysql-ns
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - Validate=true
+      - CreateNamespace=true
