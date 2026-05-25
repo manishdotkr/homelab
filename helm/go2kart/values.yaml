@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/go2kart/backend
-  tag: v2
+  tag: v3
   pullPolicy: IfNotPresent
 
 appName: go2kart
