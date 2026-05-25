@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-client
+  namespace: default
+spec:
+  containers:
+    - name: mysql-client
+      image: mysql:8.0
+      command: ["/bin/sh", "-c", "sleep infinity"]
+      tty: true
+      stdin: true
+      resources:
+        requests:
+          memory: "256Mi"
+          cpu: "100m"
+        limits:
+          memory: "512Mi"
+          cpu: "500m"

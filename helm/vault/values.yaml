@@ -1,13 +1,12 @@
 # ============================================================
-# values.yaml — MySQL custom Helm chart
+# values.yaml — Vault custom Helm chart
 # Override any value with --set or a custom values file.
-# Sensitive values (passwords) live in secrets.yaml — NOT here.
 # ============================================================
 
 ## ── Image ────────────────────────────────────────────────────
 image:
-  repository: mysql
-  tag: "8.4"
+  repository: hashicorp/vault
+  tag: "1.17"
   pullPolicy: IfNotPresent
 
 ## ── Replica ──────────────────────────────────────────────────
@@ -17,24 +16,39 @@ replicaCount: 1
 nameOverride: ""
 fullnameOverride: ""
 
-## ── MySQL configuration ──────────────────────────────────────
-mysql:
-  ## Name of the default database created on first boot
-  database: mydb
-  ## Non-root user created on first boot (leave empty to skip)
-  user: myuser
-  ## Name of the Kubernetes Secret that holds all passwords.
-  ## Must be created BEFORE helm install (apply secrets.yaml first).
-  ## The secret must contain these keys:
-  ##   MYSQL_ROOT_PASSWORD
-  ##   MYSQL_PASSWORD        (only needed if mysql.user is set)
-  existingSecret: mysql-secret
+## ── Namespace ────────────────────────────────────────────────
+namespace: vault-ns
+
+## ── Vault configuration ──────────────────────────────────────
+vault:
+  ## Log level: trace, debug, info, warn, error
+  logLevel: info
+  ## Log format: standard, json
+  logFormat: standard
+  ## Address Vault advertises to the cluster
+  apiAddr: "http://vault.vault-ns.svc.cluster.local:8200"
+  ## Enable the built-in web UI
+  ui: true
+
+## ── Vault server config (vault.hcl) ──────────────────────────
+## Rendered into a ConfigMap and mounted at /vault/config/
+vaultConfig:
+  storage:
+    type: file
+    path: /vault/data
+  listener:
+    type: tcp
+    address: "0.0.0.0:8200"
+    ## Set tls_disable to false and supply a cert/key to enable TLS
+    tls_disable: true
+    ## tls_cert_file: /vault/tls/tls.crt
+    ## tls_key_file:  /vault/tls/tls.key
 
 ## ── Persistence (hostPath) ───────────────────────────────────
 persistence:
   enabled: true
   ## Absolute path on the Kubernetes node
-  hostPath: /mnt/ssd/kubernetes/mysql
+  hostPath: /mnt/ssd/kubernetes/vault
   ## DirectoryOrCreate → creates the path if it does not exist
   ## Directory         → path must already exist on the node
   hostPathType: DirectoryOrCreate
@@ -42,29 +56,37 @@ persistence:
   size: 10Gi
   ## Keep data when the PVC is deleted
   reclaimPolicy: Retain
+  ## StorageClass — use "" for a manually-provisioned PV
+  storageClassName: ""
 
 ## ── Service ──────────────────────────────────────────────────
 service:
-  type: ClusterIP
-  port: 3306
-  ## Set to a fixed value if you need a stable cluster IP
+  type: NodePort
+  ## Vault API / UI port
+  port: 8200
+  ## Vault cluster (HA) port — kept here for future HA expansion
+  clusterPort: 8201
   clusterIP: ""
   ## Uncomment for NodePort access
   # type: NodePort
-  # nodePort: 30306
+  nodePort: 30200
 
 ## ── Resource limits ──────────────────────────────────────────
 resources:
   requests:
     cpu: 250m
-    memory: 512Mi
+    memory: 256Mi
   limits:
     cpu: "1"
-    memory: 1Gi
+    memory: 512Mi
 
 ## ── Probes ───────────────────────────────────────────────────
+## NOTE: Vault returns 429 when sealed (not 200), so the liveness
+## probe uses /v1/sys/health?standbyok=true&sealedok=true to avoid
+## restarting a sealed-but-healthy pod.
 livenessProbe:
   enabled: true
+  path: /v1/sys/health?standbyok=true&sealedok=true
   initialDelaySeconds: 30
   periodSeconds: 10
   timeoutSeconds: 5
@@ -72,6 +94,9 @@ livenessProbe:
 
 readinessProbe:
   enabled: true
+  ## Returns 200 only when initialised AND unsealed — keeps traffic away from a sealed pod.
+  path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+  # path: /v1/sys/health
   initialDelaySeconds: 10
   periodSeconds: 10
   timeoutSeconds: 5
@@ -79,48 +104,36 @@ readinessProbe:
 
 startupProbe:
   enabled: true
+  path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+  # path: /v1/sys/health?standbyok=true&sealedok=true
   initialDelaySeconds: 10
   periodSeconds: 10
   timeoutSeconds: 5
-  ## Allow up to 5 min for first-boot initialisation (30 × 10s)
+  ## Allow up to 5 min for first boot (30 × 10s)
   failureThreshold: 30
+  
 
 ## ── Security context ─────────────────────────────────────────
+## Vault's official image runs as root by default; the process
+## drops privileges itself via IPC_LOCK.  Override if your image
+## supports a non-root uid.
 podSecurityContext:
-  fsGroup: 1001        # k3s group inside the official image
+  fsGroup: 1001
 
 containerSecurityContext:
-  runAsUser: 995      # k3s user inside the official image
+  runAsUser: 995
   runAsNonRoot: true
   allowPrivilegeEscalation: false
-
-## ── MySQL server configuration (my.cnf) ──────────────────────
-## These are injected via a ConfigMap mounted at /etc/mysql/conf.d/
-mysqlConfig:
-  max_connections: 151
-  max_allowed_packet: 16M
-  character_set_server: utf8mb4
-  collation_server: utf8mb4_unicode_ci
-  slow_query_log: 0
-  long_query_time: 10
-  ## InnoDB buffer pool — recommended: 50-70 % of available memory
-  innodb_buffer_pool_size: 256M
+  ## IPC_LOCK prevents memory from being swapped (mirrors cap_add: IPC_LOCK)
+  capabilities:
+    add:
+      - IPC_LOCK
 
 ## ── Extra environment variables ──────────────────────────────
-## Useful for MYSQL_* variables not covered above.
 ## Example:
-##   - name: MYSQL_INITDB_SKIP_TZINFO
-##     value: "1"
+##   - name: VAULT_LOG_LEVEL
+##     value: debug
 extraEnvVars: []
-
-## ── Init scripts ─────────────────────────────────────────────
-## SQL or shell scripts to run once on first boot.
-## Key = filename, value = script content.
-## Example:
-##   initScripts:
-##     01-grants.sql: |
-##       GRANT ALL ON mydb.* TO 'myuser'@'%';
-initScripts: {}
 
 ## ── Pod annotations / labels ─────────────────────────────────
 podAnnotations: {}

@@ -1,0 +1,6 @@
+helm install mysql ./mysql \
+  -n mysql-ns \
+  --create-namespace \
+  -f ./mysql/values.yaml
+
+helm uninstall mysql -n mysql-ns

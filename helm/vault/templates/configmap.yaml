@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "vault.configMapName" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+data:
+  vault.hcl: |
+    # ── Storage ───────────────────────────────────────────────
+    storage "{{ .Values.vaultConfig.storage.type }}" {
+      path = "{{ .Values.vaultConfig.storage.path }}"
+    }
+
+    # ── Listener ──────────────────────────────────────────────
+    listener "{{ .Values.vaultConfig.listener.type }}" {
+      address     = "{{ .Values.vaultConfig.listener.address }}"
+      tls_disable = {{ .Values.vaultConfig.listener.tls_disable }}
+      {{- if not .Values.vaultConfig.listener.tls_disable }}
+      tls_cert_file = "{{ .Values.vaultConfig.listener.tls_cert_file }}"
+      tls_key_file  = "{{ .Values.vaultConfig.listener.tls_key_file }}"
+      {{- end }}
+    }
+
+    # ── API address & UI ──────────────────────────────────────
+    api_addr = "{{ .Values.vault.apiAddr }}"
+    ui       = {{ .Values.vault.ui }}
+    
+    disable_mlock = true
+
+    # ── Logging ───────────────────────────────────────────────
+    log_level  = "{{ .Values.vault.logLevel }}"
+    log_format = "{{ .Values.vault.logFormat }}"

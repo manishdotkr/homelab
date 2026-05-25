@@ -1,0 +1,63 @@
+╔══════════════════════════════════════════════════════════════╗
+║               HashiCorp Vault — Helm deployment              ║
+╚══════════════════════════════════════════════════════════════╝
+
+Release : {{ .Release.Name }}
+Namespace: {{ .Values.namespace }}
+Image   : {{ .Values.image.repository }}:{{ .Values.image.tag }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 1. Check pod status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  kubectl get pods -n {{ .Values.namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 2. FIRST-BOOT — initialise Vault (run once only)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  VAULT_POD=$(kubectl get pod -n {{ .Values.namespace }} \
+    -l app.kubernetes.io/instance={{ .Release.Name }} \
+    -o jsonpath='{.items[0].metadata.name}')
+
+  # Initialise — save the unseal keys and root token securely!
+  kubectl exec -n {{ .Values.namespace }} $VAULT_POD -- \
+    vault operator init
+
+  # Unseal (repeat with 3 different keys from init output)
+  kubectl exec -n {{ .Values.namespace }} $VAULT_POD -- \
+    vault operator unseal <UNSEAL_KEY_1>
+  kubectl exec -n {{ .Values.namespace }} $VAULT_POD -- \
+    vault operator unseal <UNSEAL_KEY_2>
+  kubectl exec -n {{ .Values.namespace }} $VAULT_POD -- \
+    vault operator unseal <UNSEAL_KEY_3>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 3. Access the Vault UI / API
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  # Port-forward to your local machine
+  kubectl port-forward -n {{ .Values.namespace }} svc/{{ include "vault.fullname" . }} 8200:8200
+
+  Then open: http://localhost:8200/ui
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 4. Check Vault status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  kubectl exec -n {{ .Values.namespace }} $VAULT_POD -- vault status
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ⚠  Persistence
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Data is stored on the node at: {{ .Values.persistence.hostPath }}
+  PV reclaim policy            : {{ .Values.persistence.reclaimPolicy }}
+  Deleting the release will NOT delete the PV/data (Retain policy).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ⚠  Sealed after restart
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vault seals itself on every restart.  You must unseal manually
+  (or configure auto-unseal via transit/KMS) after each pod restart.

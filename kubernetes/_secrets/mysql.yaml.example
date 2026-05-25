@@ -8,5 +8,5 @@ metadata:
     app.kubernetes.io/managed-by: manual
 type: Opaque
 stringData:
-  mysql-root-password: <mysql-root-password>
-  mysql-password: <mysql-password>
+  MYSQL_ROOT_PASSWORD: <mysql-root-password>
+  MYSQL_PASSWORD: <mysql-password>

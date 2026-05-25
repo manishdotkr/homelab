@@ -1,0 +1,66 @@
+# ============================================================
+# commands.txt — Vault Helm chart quick reference
+# ============================================================
+
+# ── Namespace (created by the chart, but can pre-create) ─────
+kubectl create namespace vault-ns
+
+# ── Install ──────────────────────────────────────────────────
+helm install vault . \
+  --namespace vault-ns \
+  --create-namespace
+
+# Install with custom hostPath
+helm install vault . \
+  --namespace vault-ns \
+  --set persistence.hostPath=/data/vault
+
+# Dry-run / template preview
+helm install vault . --dry-run --debug -n vault-ns
+
+# ── Upgrade ──────────────────────────────────────────────────
+helm upgrade vault . -n vault-ns
+
+# ── Uninstall (PV/data retained) ─────────────────────────────
+helm uninstall vault -n vault-ns
+
+# ── Pod shortcuts ────────────────────────────────────────────
+# Get vault pod name
+kubectl get pods -n vault-ns -l app.kubernetes.io/name=vault
+
+# Tail logs
+kubectl logs -n vault-ns -l app.kubernetes.io/name=vault -f
+
+# Shell into the pod
+kubectl exec -it -n vault-ns \
+  $(kubectl get pod -n vault-ns -l app.kubernetes.io/name=vault -o jsonpath='{.items[0].metadata.name}') \
+  -- /bin/sh
+
+# ── First-boot: initialise & unseal ──────────────────────────
+VAULT_POD=$(kubectl get pod -n vault-ns \
+  -l app.kubernetes.io/name=vault \
+  -o jsonpath='{.items[0].metadata.name}')
+
+# Initialise (5 key shares, threshold 3)
+kubectl exec -n vault-ns $VAULT_POD -- \
+  vault operator init -key-shares=5 -key-threshold=3
+
+# Unseal (run 3 times with different keys)
+kubectl exec -n vault-ns $VAULT_POD -- vault operator unseal <KEY_1>
+kubectl exec -n vault-ns $VAULT_POD -- vault operator unseal <KEY_2>
+kubectl exec -n vault-ns $VAULT_POD -- vault operator unseal <KEY_3>
+
+# Check status
+kubectl exec -n vault-ns $VAULT_POD -- vault status
+
+# ── Port-forward UI ──────────────────────────────────────────
+kubectl port-forward -n vault-ns svc/vault 8200:8200
+# Then open: http://localhost:8200/ui
+
+# ── PV / PVC ─────────────────────────────────────────────────
+kubectl get pv,pvc -n vault-ns
+kubectl describe pvc -n vault-ns
+
+# ── ConfigMap (rendered vault.hcl) ───────────────────────────
+kubectl get configmap -n vault-ns
+kubectl describe configmap vault-config -n vault-ns
