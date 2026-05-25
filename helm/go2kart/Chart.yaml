@@ -1,0 +1,6 @@
+apiVersion: v2
+name: go2kart
+description: A Helm chart for go2kart - a simple e-commerce application
+type: application
+version: 0.0.1
+appVersion: "latest"
